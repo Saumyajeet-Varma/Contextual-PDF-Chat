@@ -1,7 +1,15 @@
-from flask import Flask, request, jsonify
+import os
 import pdfplumber
+import textwrap
+from flask import Flask, request, jsonify
+from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
+
+load_dotenv()
 
 app = Flask(__name__)
+
+model = SentenceTransformer(os.getenv('MODEL'))
 
 # ---------- UTILS ----------
 def extract_text_from_pdf(filestream):
@@ -12,6 +20,9 @@ def extract_text_from_pdf(filestream):
             if page_text:
                 text += page_text
     return text
+
+def chunk_text(text, max_tokens=500):
+    return textwrap.wrap(text, max_tokens)
 
 # ---------- ROUTES ----------
 @app.route("/")
@@ -27,6 +38,8 @@ def upload_pdf():
         return jsonify({"error": "No file uploaded"}), 400
     
     text = extract_text_from_pdf(file.stream)
+    chunks = chunk_text(text)
+    embeddings = model.encode(chunks)
     
     return jsonify({"success": True, "message": "PDF Text extracted", "text": text}), 200
 
