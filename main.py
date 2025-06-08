@@ -4,6 +4,7 @@ import textwrap
 import sqlite3
 import uuid
 import faiss
+import openai
 import numpy as np
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
@@ -65,9 +66,14 @@ def load_all_chunks_and_embeddings():
     conn.close()
     return chunks, embeddings
 
-# TODO: Integrate LLM
 def get_LLM_response(question, context):
-    return context
+    prompt = f"Context:\n{context}\n\nQuestion: {question}\nAnswer:"
+    response = openai.ChatCompletion.create(
+        model="gpt-4",  # or "gpt-3.5-turbo"
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3
+    )
+    return response['choices'][0]['message']['content'].strip()
 
 # ---------- ROUTES ----------
 @app.route("/")
@@ -114,7 +120,7 @@ def get_answer():
     context = "\n".join(relative_chunks)
     answer = get_LLM_response(question, context)
 
-    return jsonify({"success": True, "message": "Relative chunks fetched", "answer": answer}), 200
+    return jsonify({"success": True, "message": "LLM responded", "answer": answer}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
