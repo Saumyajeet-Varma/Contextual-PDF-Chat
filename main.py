@@ -4,7 +4,7 @@ import textwrap
 import sqlite3
 import uuid
 import faiss
-import openai
+from openai import OpenAI
 import numpy as np
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
@@ -16,6 +16,7 @@ app = Flask(__name__)
 
 model = SentenceTransformer(os.getenv('MODEL'))
 db_path = os.getenv("DB_PATH")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ---------- UTILS ----------
 def init_db():
@@ -68,12 +69,16 @@ def load_all_chunks_and_embeddings():
 
 def get_LLM_response(question, context):
     prompt = f"Context:\n{context}\n\nQuestion: {question}\nAnswer:"
-    response = openai.ChatCompletion.create(
-        model="gpt-4",  # or "gpt-3.5-turbo"
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that answers questions based on the provided context."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.3,
+        max_tokens=500,
     )
-    return response['choices'][0]['message']['content'].strip()
+    return response.choices[0].message.content.strip()
 
 # ---------- ROUTES ----------
 @app.route("/")
