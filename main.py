@@ -4,6 +4,7 @@ import textwrap
 import sqlite3
 import uuid
 import faiss
+import requests
 import numpy as np
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
@@ -65,9 +66,23 @@ def load_all_chunks_and_embeddings():
     conn.close()
     return chunks, embeddings
 
-# TODO: Integrate LLM
+# LLM Integrated
 def get_LLM_response(question, context):
-    return context
+    prompt = f"Context:\n{context}\n\nQuestion: {question}\nAnswer:"
+
+    try:
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "mistral",  
+                "prompt": prompt,
+                "stream": False
+            }
+        )
+        response.raise_for_status()
+        return response.json()["response"].strip()
+    except Exception as e:
+        return f"Error from LLM: {e}"
 
 # ---------- ROUTES ----------
 @app.route("/")
