@@ -69,7 +69,6 @@ def load_all_chunks_and_embeddings():
 # LLM Integrated
 def get_LLM_response(question, context):
     prompt = f"Context:\n{context}\n\nQuestion: {question}\nAnswer:"
-
     try:
         response = requests.post(
             "http://localhost:11434/api/generate",
@@ -83,7 +82,7 @@ def get_LLM_response(question, context):
         return response.json()["response"].strip()
     except Exception as e:
         return f"Error from LLM: {e}"
-
+    return prompt
 # ---------- ROUTES ----------
 @app.route("/")
 def index():
@@ -129,7 +128,7 @@ def get_answer():
     context = "\n".join(relative_chunks)
     answer = get_LLM_response(question, context)
 
-    return jsonify({"success": True, "message": "Relative chunks fetched", "answer": answer}), 200
+    return jsonify({"success": True, "message": "LLM Response generated", "answer": answer}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
