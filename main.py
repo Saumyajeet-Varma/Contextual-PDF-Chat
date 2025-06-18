@@ -7,12 +7,17 @@ import faiss
 import requests
 import numpy as np
 from dotenv import load_dotenv
+from flask_cors import CORS
 from flask import Flask, request, jsonify
 from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
 app = Flask(__name__)
+
+cors_origin = os.getenv("CORS_ORIGIN")
+# CORS(app, origins=[os.getenv("CORS_ORIGIN")])
+CORS(app, resources={r"/*": {"origins": cors_origin}})
 
 model = SentenceTransformer(os.getenv('MODEL'))
 db_path = os.getenv("DB_PATH")
@@ -73,7 +78,7 @@ def get_LLM_response(question, context):
         response = requests.post(
             "http://localhost:11434/api/generate",
             json={
-                "model": "mistral",  
+                "model": "mistral",
                 "prompt": prompt,
                 "stream": False
             }
@@ -82,14 +87,14 @@ def get_LLM_response(question, context):
         return response.json()["response"].strip()
     except Exception as e:
         return f"Error from LLM: {e}"
-    return prompt
+
 # ---------- ROUTES ----------
 @app.route("/")
 def index():
     return "SERVER IS RUNNING"
 
-@app.route("/upload", methods=['POST'])
-def upload_pdf():
+@app.route("/extract", methods=['POST'])
+def extract_pdf():
 
     file = request.files['file']
     
@@ -97,12 +102,23 @@ def upload_pdf():
         return jsonify({"success": False, "message": "No file uploaded"}), 400
     
     text = extract_text_from_pdf(file.stream)
+
+    return jsonify({"success": True, "message": "PDF tect extracted successfully", "text": text})
+
+@app.route("/store", methods=["POST"])
+def store_text():
+
+    text = request.form.get('text')
+
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+
     chunks = chunk_text(text)
     embeddings = model.encode(chunks)
 
     store_chunks(chunks, embeddings)
     
-    return jsonify({"success": True, "message": "PDF processed and stored in permanent memory", "text": text}), 200
+    return jsonify({"success": True, "message": "PDF text stored in permanent memory", "text": text}), 200
 
 @app.route("/ask", methods=['POST'])
 def get_answer():
@@ -127,6 +143,9 @@ def get_answer():
 
     context = "\n".join(relative_chunks)
     answer = get_LLM_response(question, context)
+
+    if answer == "Error from LLM: 500 Server Error: Internal Server Error for url: http://localhost:11434/api/generate":
+        return jsonify({"success": False, "message": answer})
 
     return jsonify({"success": True, "message": "LLM Response generated", "answer": answer}), 200
 
