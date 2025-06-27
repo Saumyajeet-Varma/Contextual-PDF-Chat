@@ -16,11 +16,12 @@ load_dotenv()
 app = Flask(__name__)
 
 cors_origin = os.getenv("CORS_ORIGIN")
-# CORS(app, origins=[os.getenv("CORS_ORIGIN")])
 CORS(app, resources={r"/*": {"origins": cors_origin}})
 
 model = SentenceTransformer(os.getenv('MODEL'))
 db_path = os.getenv("DB_PATH")
+llm_url = os.getenv("LLM_API_URL")
+llm_model = os.getenv("LLM_MODEL")
 
 # ---------- UTILS ----------
 def init_db():
@@ -76,9 +77,9 @@ def get_LLM_response(question, context):
     prompt = f"Context:\n{context}\n\nQuestion: {question}\nAnswer:"
     try:
         response = requests.post(
-            "http://localhost:11434/api/generate",
+            llm_url,
             json={
-                "model": "mistral",
+                "model": llm_model,
                 "prompt": prompt,
                 "stream": False
             }
@@ -144,8 +145,8 @@ def get_answer():
     context = "\n".join(relative_chunks)
     answer = get_LLM_response(question, context)
 
-    if answer == "Error from LLM: 500 Server Error: Internal Server Error for url: http://localhost:11434/api/generate":
-        return jsonify({"success": False, "message": answer})
+    if answer.startswith("Error from LLM"):
+        return jsonify({"success": False, "error": answer}), 500
 
     return jsonify({"success": True, "message": "LLM Response generated", "answer": answer}), 200
 
